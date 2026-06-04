@@ -6,9 +6,7 @@ export default function Login() {
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState<'teacher' | 'admin'>('teacher');
   const [error, setError] = useState('');
-  const [showDemoCredentials, setShowDemoCredentials] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,20 +17,10 @@ export default function Login() {
       return;
     }
 
-    const success = await login(email, password, role);
+    const success = await login(email, password);
     if (!success) {
-      setError('Invalid email or password for the selected role');
+      setError('Invalid email or password');
     }
-  };
-
-  const quickLogin = (cred: { email: string; password: string; name: string; role: 'teacher' | 'admin' }) => {
-    setEmail(cred.email);
-    setPassword(cred.password);
-    setRole(cred.role);
-    // Trigger login after state updates
-    setTimeout(() => {
-      login(cred.email, cred.password, cred.role).catch(() => {});
-    }, 0);
   };
 
   return (
@@ -58,35 +46,6 @@ export default function Login() {
 
           {/* Form Content */}
           <div className="px-6 py-8 sm:px-8">
-            {/* Role Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-300 mb-3">Select Your Role</label>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setRole('teacher')}
-                  className={`py-3 px-4 rounded-lg font-medium text-sm transition-all border ${
-                    role === 'teacher'
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
-                      : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-slate-500'
-                  }`}
-                >
-                  👨‍🏫 Teacher
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRole('admin')}
-                  className={`py-3 px-4 rounded-lg font-medium text-sm transition-all border ${
-                    role === 'admin'
-                      ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/20'
-                      : 'bg-slate-700 text-slate-300 border-slate-600 hover:border-slate-500'
-                  }`}
-                >
-                  🔐 Admin
-                </button>
-              </div>
-            </div>
-
             {/* Email Input */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -149,45 +108,13 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Demo Credentials */}
-            {showDemoCredentials && (
-              <div className="mt-6 pt-6 border-t border-slate-700">
-                <p className="text-xs text-slate-400 mb-3 font-medium">📋 Demo Credentials (Dev Only)</p>
-                <div className="space-y-2">
-                  <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                    <p className="text-xs text-slate-400 mb-2">
-                      <span className="font-medium">Teacher:</span> sara@hudur.edu / teacher123
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => quickLogin({ email: 'sara@hudur.edu', password: 'teacher123', name: 'Sara Khan', role: 'teacher' })}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-all"
-                    >
-                      Quick Login
-                    </button>
-                  </div>
-                  <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-700">
-                    <p className="text-xs text-slate-400 mb-2">
-                      <span className="font-medium">Admin:</span> admin@hudur.edu / admin123
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => quickLogin({ email: 'admin@hudur.edu', password: 'admin123', name: 'Dr. Sarah Admin', role: 'admin' })}
-                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition-all"
-                    >
-                      Quick Login
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowDemoCredentials(false)}
-                  className="text-xs text-slate-500 hover:text-slate-400 mt-2"
-                >
-                  Hide credentials
-                </button>
-              </div>
-            )}
+            {/* Info Message */}
+            <div className="mt-6 pt-6 border-t border-slate-700">
+              <p className="text-xs text-slate-400 text-center">
+                Enter your Hudur Institute credentials to log in.<br/>
+                Your role (admin or teacher) will be determined automatically.
+              </p>
+            </div>
           </div>
         </div>
 
