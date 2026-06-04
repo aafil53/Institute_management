@@ -461,9 +461,8 @@ export default function App() {
                 onNavigateToClasses={() => setActiveScreen('timetable_setup')}
                 onNavigateToTeachers={() => setActiveScreen('teachers')}
                 onNavigateToAttendance={() => {
-                  setSimulatedRole('teacher');
-                  setActiveScreen('teacher_dash');
-                }}
+  setActiveScreen('teacher_dash');
+}}
                 onAddTimetableEntry={handleAddTimetableEntry}
                 onDeleteTimetableEntry={handleDeleteTimetableEntry}
                 onUpdateTimetableEntry={handleUpdateTimetableEntry}
