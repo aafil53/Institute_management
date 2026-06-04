@@ -1,0 +1,6 @@
+{
+  "name": "Hudur Attendance System",
+  "description": "An elegant, intuitive Institute Attendance Management System for teachers and administrators to easily track student attendance, manage timetables, and view analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
