@@ -8,8 +8,11 @@ import {
   INITIAL_ATTENDANCE_LOGS 
 } from './initialData';
 
+// Context & Auth Imports
+import { useAuth } from './context/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+
 // Component Imports
-import RoleSwitcher from './components/RoleSwitcher';
 import DashboardTeacher from './components/DashboardTeacher';
 import AttendanceMarker from './components/AttendanceMarker';
 import DashboardAdmin from './components/DashboardAdmin';
@@ -17,6 +20,7 @@ import StudentDirectory from './components/StudentDirectory';
 import TeacherDirectory from './components/TeacherDirectory';
 import ClassTimetableSetup from './components/ClassTimetableSetup';
 import Reports from './components/Reports';
+import Navigation from './components/Navigation';
 
 // Lucide Icons
 import { 
@@ -38,12 +42,12 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  const { user } = useAuth();
+
   // Mobile navigation drawer toggle
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Active sandbox user roles
-  const [simulatedRole, setSimulatedRole] = useState<'teacher' | 'admin'>('teacher');
-  const [simulatedTeacherId, setSimulatedTeacherId] = useState('teach-sara');
+  // Selected day for timetable views
   const [simulatedDay, setSimulatedDay] = useState<string>(() => {
     // default to current weekday name, falling back to 'Monday' if weekend
     const weekDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -110,7 +114,6 @@ export default function App() {
 
   // Adjust active screen dynamically upon role updates
   const handleRoleChange = (role: 'teacher' | 'admin') => {
-    setSimulatedRole(role);
     setMobileMenuOpen(false);
     if (role === 'teacher') {
       setActiveScreen('teacher_dash');
@@ -129,9 +132,7 @@ export default function App() {
       setAttendanceLogs(INITIAL_ATTENDANCE_LOGS);
       
       // route default
-      setSimulatedRole('teacher');
-      setSimulatedTeacherId('teach-sara');
-      setActiveScreen('teacher_dash');
+      setActiveScreen(user?.role === 'admin' ? 'admin_dash' : 'teacher_dash');
       setMobileMenuOpen(false);
       
       alert('Sandbox reset successful!');
@@ -226,7 +227,9 @@ export default function App() {
   };
 
   // Active physical entities
-  const activeTeacher = teachers.find(t => t.id === simulatedTeacherId) || teachers[0];
+  const activeTeacher = user?.role === 'teacher' 
+    ? teachers.find(t => t.id === user?.departmentOrId) || teachers[0]
+    : teachers[0];
   const activeSessionEntry = timetable.find(e => e.id === activeSessionId);
 
   // Quick launching trigger
@@ -236,16 +239,16 @@ export default function App() {
   };
 
   return (
-    <div id="application-layout" className="min-h-screen flex flex-col bg-[#fafafa]">
-      
-      {/* Top sandbox role-selector navigation */}
-      <RoleSwitcher
-        currentRole={simulatedRole}
-        onChangeRole={handleRoleChange}
-        teachers={teachers}
-        currentTeacherId={simulatedTeacherId}
-        onChangeTeacher={setSimulatedTeacherId}
-      />
+    <ProtectedRoute>
+      <div id="application-layout" className="min-h-screen flex flex-col bg-[#fafafa]">
+        
+        {/* Top Navigation Bar */}
+        <Navigation
+          activeScreen={activeScreen}
+          onNavigate={setActiveScreen}
+          mobileMenuOpen={mobileMenuOpen}
+          onToggleMobileMenu={setMobileMenuOpen}
+        />
 
       <div className="flex-1 flex overflow-hidden relative">
 
@@ -268,7 +271,7 @@ export default function App() {
               <button
                 id="nav-link-dashboard"
                 onClick={() => {
-                  if (simulatedRole === 'teacher') {
+                  if (user?.role === 'teacher') {
                     setActiveScreen('teacher_dash');
                   } else {
                     setActiveScreen('admin_dash');
@@ -284,90 +287,85 @@ export default function App() {
                 <span>Dashboard</span>
               </button>
 
-              {/* Students Directory Link */}
-              <button
-                id="nav-link-students"
-                onClick={() => {
-                  setSimulatedRole('admin');
-                  setActiveScreen('students');
-                }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'students'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <GraduationCap className="w-4 h-4 text-current" />
-                <span>Students</span>
-              </button>
+              {/* Students Directory Link - Admin Only */}
+              {user?.role === 'admin' && (
+                <button
+                  id="nav-link-students"
+                  onClick={() => setActiveScreen('students')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'students'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <GraduationCap className="w-4 h-4 text-current" />
+                  <span>Students</span>
+                </button>
+              )}
 
-              {/* Teachers Link */}
-              <button
-                id="nav-link-teachers"
-                onClick={() => {
-                  setSimulatedRole('admin');
-                  setActiveScreen('teachers');
-                }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'teachers'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Users className="w-4 h-4 text-current" />
-                <span>Teachers</span>
-              </button>
+              {/* Teachers Link - Admin Only */}
+              {user?.role === 'admin' && (
+                <button
+                  id="nav-link-teachers"
+                  onClick={() => setActiveScreen('teachers')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'teachers'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-current" />
+                  <span>Teachers</span>
+                </button>
+              )}
 
-              {/* Classes Setup Link */}
-              <button
-                id="nav-link-classes"
-                onClick={() => {
-                  setSimulatedRole('admin');
-                  setActiveScreen('timetable_setup');
-                }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'timetable_setup'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Layers className="w-4 h-4 text-current" />
-                <span>Classes</span>
-              </button>
+              {/* Classes Setup Link - Admin Only */}
+              {user?.role === 'admin' && (
+                <button
+                  id="nav-link-classes"
+                  onClick={() => setActiveScreen('timetable_setup')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'timetable_setup'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Layers className="w-4 h-4 text-current" />
+                  <span>Classes</span>
+                </button>
+              )}
 
-              {/* Attendance Timeline link */}
-              <button
-                id="nav-link-attendance"
-                onClick={() => {
-                  setSimulatedRole('teacher');
-                  setActiveScreen('teacher_dash');
-                }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'attendance_marker'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <Calendar className="w-4 h-4 text-current" />
-                <span>Attendance</span>
-              </button>
+              {/* Attendance Timeline link - Teacher */}
+              {user?.role === 'teacher' && (
+                <button
+                  id="nav-link-attendance"
+                  onClick={() => setActiveScreen('teacher_dash')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'attendance_marker'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <Calendar className="w-4 h-4 text-current" />
+                  <span>Attendance</span>
+                </button>
+              )}
 
-              {/* Reports Link */}
-              <button
-                id="nav-link-reports"
-                onClick={() => {
-                  setSimulatedRole('admin');
-                  setActiveScreen('reports');
-                }}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'reports'
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
-                }`}
-              >
-                <FileText className="w-4 h-4 text-current" />
-                <span>Reports</span>
-              </button>
+              {/* Reports Link - Admin Only */}
+              {user?.role === 'admin' && (
+                <button
+                  id="nav-link-reports"
+                  onClick={() => setActiveScreen('reports')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'reports'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <FileText className="w-4 h-4 text-current" />
+                  <span>Reports</span>
+                </button>
+              )}
             </div>
           </nav>
 
@@ -380,7 +378,7 @@ export default function App() {
               <div className="overflow-hidden">
                 <p className="text-xs font-semibold text-slate-900 truncate font-sans leading-tight">{activeTeacher.name}</p>
                 <p className="text-[10px] text-slate-500 uppercase tracking-tight font-mono truncate leading-none mt-0.5">
-                  {simulatedRole === 'admin' ? 'Administrator' : 'Faculty'}
+                  {user?.role === 'admin' ? 'Administrator' : 'Faculty'}
                 </p>
               </div>
             </div>
@@ -544,7 +542,7 @@ export default function App() {
             </div>
 
             <nav className="flex-1 space-y-1.5">
-              {simulatedRole === 'teacher' ? (
+              {user?.role === 'teacher' ? (
                 <>
                   <div className="text-[10px] font-bold text-slate-400 pb-2 uppercase tracking-wider font-mono">
                     Daily Operations
@@ -627,6 +625,7 @@ export default function App() {
         </div>
       )}
 
-    </div>
+      </div>
+    </ProtectedRoute>
   );
 }
