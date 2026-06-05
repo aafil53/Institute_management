@@ -53,10 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       // Sign in with Supabase
-      const { data, error } = await supabaseSignIn(email, password);
+      const result = await supabaseSignIn(email, password);
       
-      if (error || !data.user) {
-        console.error('Sign in error:', error);
+      if (!result.user) {
+        console.error('Sign in error: No user returned');
         return false;
       }
 
