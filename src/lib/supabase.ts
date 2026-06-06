@@ -97,11 +97,14 @@ export async function getCurrentUser() {
 
     const { data: userData, error } = await supabase
       .from('users')
-      .select('*')
+      .select('id, name, email, role, department')
       .eq('id', data.user.id)
       .single()
 
-    if (error) throw error
+    if (error) {
+      console.error('Get current user error:', error)
+      return null
+    }
     return userData as User
   } catch (error) {
     console.error('Get current user error:', error)

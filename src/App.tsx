@@ -21,6 +21,7 @@ import TeacherDirectory from './components/TeacherDirectory';
 import ClassTimetableSetup from './components/ClassTimetableSetup';
 import Reports from './components/Reports';
 import Navigation from './components/Navigation';
+import UserManagement from './components/UserManagement';
 
 // Lucide Icons
 import { 
@@ -319,6 +320,22 @@ export default function App() {
                 </button>
               )}
 
+              {/* User Management Link - Admin Only */}
+              {user?.role === 'admin' && (
+                <button
+                  id="nav-link-user-management"
+                  onClick={() => setActiveScreen('user_management')}
+                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
+                    activeScreen === 'user_management'
+                      ? 'bg-blue-600 text-white font-bold shadow-sm'
+                      : 'text-slate-650 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <UserCheck className="w-4 h-4 text-current" />
+                  <span>Create Users</span>
+                </button>
+              )}
+
               {/* Classes Setup Link - Admin Only */}
               {user?.role === 'admin' && (
                 <button
@@ -492,6 +509,11 @@ export default function App() {
                 onEditTeacher={handleEditTeacher}
                 onDeleteTeacher={handleDeleteTeacher}
               />
+            )}
+
+            {/* SCREEN 5.5: User Management */}
+            {activeScreen === 'user_management' && (
+              <UserManagement />
             )}
 
             {/* SCREEN 6: Timetable & Classes Setup Schedules planner */}
