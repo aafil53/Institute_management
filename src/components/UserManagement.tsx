@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserPlus, Mail, Lock, User, Building2, Phone, AlertCircle, CheckCircle2, Loader, Eye, EyeOff, Trash2, Info } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase, adminCreateUser } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface CreateUserForm {
@@ -124,46 +123,23 @@ export default function UserManagement() {
         return;
       }
 
-      // Generate a valid UUID
-      const newUserId = uuidv4();
-      console.log('Creating user with ID:', newUserId);
+      console.log('Creating user in Supabase Auth & public tables');
 
-      // Create user profile
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert([{
-          id: newUserId,
-          email: form.email.toLowerCase(),
+      // Call programmatic user creation utility
+      await adminCreateUser(
+        form.email.toLowerCase(),
+        form.password,
+        {
           name: form.name,
           role: 'teacher',
           department: form.department,
-        }]);
-
-      if (insertError) {
-        console.error('Insert error details:', insertError);
-        throw insertError;
-      }
-
-      // Create teacher record
-      const { error: teacherError } = await supabase
-        .from('teachers')
-        .insert([{
-          user_id: newUserId,
-          name: form.name,
-          employee_id: `T-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          email: form.email.toLowerCase(),
-          department: form.department,
-          contact: form.contact || null,
-        }]);
-
-      if (teacherError) {
-        console.error('Teacher insert error:', teacherError);
-        throw teacherError;
-      }
+        },
+        form.contact
+      );
 
       setMessage({
         type: 'success',
-        text: `✓ Teacher account created!\n\nEmail: ${form.email}\n\nNEXT: Create authentication in Supabase Dashboard → Authentication → Add user`
+        text: `✓ Teacher account created successfully!\n\nEmail: ${form.email}\n\nThe teacher can now log in immediately using their email and the password you set.`
       });
 
       setForm({ email: '', password: '', name: '', department: '', contact: '' });
@@ -452,13 +428,10 @@ export default function UserManagement() {
 
         {/* Info Box */}
         <div className="mt-8 bg-blue-50 border border-blue-200 rounded-2xl p-6">
-          <h3 className="font-semibold text-blue-900 mb-2">Next Steps</h3>
-          <ol className="text-blue-800 text-sm space-y-2">
-            <li>1. Create a teacher profile using the form above</li>
-            <li>2. Go to <span className="font-medium">Supabase Dashboard → Authentication → Users</span></li>
-            <li>3. Click <span className="font-medium">"Add user"</span> and enter the same email and password</li>
-            <li>4. The teacher can now log in with their credentials</li>
-          </ol>
+          <h3 className="font-semibold text-blue-900 mb-2">Creating Teachers</h3>
+          <p className="text-blue-800 text-sm">
+            Creating a teacher here automatically registers them in Supabase Authentication and creates their database profiles. They can immediately log in with their email and password.
+          </p>
         </div>
       </div>
     </div>

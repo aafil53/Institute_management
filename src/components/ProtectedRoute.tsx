@@ -28,7 +28,7 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   // Check role-based access
   if (requiredRole) {
     const requiredRoles = Array.isArray(requiredRole) ? requiredRole : [requiredRole];
-    if (user && !requiredRoles.includes(user.role)) {
+    if (user && !requiredRoles.includes(user.role as any)) {
       return (
         <div className="min-h-screen bg-slate-900 flex items-center justify-center">
           <div className="bg-slate-800 border border-slate-700 rounded-lg p-8 max-w-md text-center">

@@ -10,8 +10,8 @@ import type {
   AttendanceRecord,
 } from '../types/supabase'
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL
+const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Missing Supabase environment variables')
@@ -99,17 +99,99 @@ export async function getCurrentUser() {
       .from('users')
       .select('id, name, email, role, department')
       .eq('id', data.user.id)
-      .single()
+      .maybeSingle()
 
     if (error) {
-      console.error('Get current user error:', error)
+      console.error('Get current user database error:', error)
       return null
     }
+
+    if (!userData) {
+      console.warn('Profile not found in users table for auth ID:', data.user.id)
+      return null
+    }
+
     return userData as User
   } catch (error) {
-    console.error('Get current user error:', error)
+    console.error('Get current user exception:', error)
     return null
   }
+}
+
+export async function adminCreateUser(
+  email: string,
+  password: string,
+  userData: Omit<User, 'id' | 'email' | 'created_at' | 'updated_at'>,
+  contact?: string
+) {
+  // Create a separate temporary client instance to prevent changing the current session
+  const tempSupabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storage: {
+        getItem: () => null,
+        setItem: () => {},
+        removeItem: () => {},
+      }
+    }
+  })
+
+  // Sign up the new user
+  const { data, error } = await tempSupabase.auth.signUp({
+    email,
+    password,
+  })
+
+  console.log("Signup response:", data);
+  console.log("Signup error:", error);
+
+  if (error) {
+    console.error("Create user failed:", error.message, error.status, error);
+    throw error;
+  }
+
+  if (!data.user) {
+    throw new Error('User creation failed: No user returned')
+  }
+
+  const newUserId = data.user.id
+
+  // Create public user profile using the standard client (which is authenticated as admin)
+  const { error: profileError } = await supabase
+    .from('users')
+    .insert([
+      {
+        id: newUserId,
+        email,
+        name: userData.name,
+        role: userData.role,
+        department: userData.department,
+      },
+    ])
+
+  if (profileError) throw profileError
+
+  // Create teacher profile if specified
+  if (userData.role === 'teacher') {
+    const { error: teacherError } = await supabase
+      .from('teachers')
+      .insert([
+        {
+          user_id: newUserId,
+          name: userData.name,
+          employee_id: `T-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          email,
+          department: userData.department || 'General',
+          contact: contact || null,
+        },
+      ])
+
+    if (teacherError) throw teacherError
+  }
+
+  return data.user
 }
 
 export async function updateUserProfile(userId: string, updates: Partial<User>) {
