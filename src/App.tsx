@@ -41,6 +41,7 @@ import ClassTimetableSetup from './components/ClassTimetableSetup';
 import Reports from './components/Reports';
 import Navigation from './components/Navigation';
 import UserManagement from './components/UserManagement';
+import TimetableManager from './components/TimetableManager';
 
 // Lucide icons
 import {
@@ -54,6 +55,7 @@ import {
   CheckSquare,
   Menu,
   X,
+  TableProperties,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -213,7 +215,6 @@ export default function App() {
         // Admin: load all logs (last 90 days across all classes)
         const today = new Date().toISOString().split('T')[0];
         const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        // Get all classes then aggregate
         const allClasses = await getClasses();
         const logsArrays = await Promise.all(
           allClasses.map(cls => getAttendanceSummary(cls.id, ninetyDaysAgo, today).catch(() => []))
@@ -280,9 +281,6 @@ export default function App() {
 
   // --- Teachers ---
   const handleAddTeacher = async (newTeach: Omit<ReturnType<typeof mapTeacher>, 'id'>) => {
-    // Note: Teachers are created via UserManagement (adminCreateUser) which sets up
-    // both the auth user and the teachers table row. This handler handles the rare
-    // case of adding a teacher record directly without auth (e.g. legacy import).
     const { error } = await supabase.from('teachers').insert([{
       name: newTeach.name,
       employee_id: newTeach.employeeId || `T-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
@@ -327,7 +325,6 @@ export default function App() {
   };
 
   const handleDeleteClass = async (classId: string) => {
-    // Supabase CASCADE deletes timetable_entries and students that reference this class
     const { error } = await supabase.from('classes').delete().eq('id', classId);
     if (error) { console.error('Delete class error:', error); return; }
     setClasses(prev => prev.filter(c => c.id !== classId));
@@ -377,7 +374,6 @@ export default function App() {
   // --- Attendance ---
   const handleSaveAttendance = async (newLog: AppAttendanceLog) => {
     try {
-      // Upsert the attendance log (idempotent on date + class + timetable slot)
       const { data: logRow, error: logError } = await supabase
         .from('attendance_logs')
         .upsert({
@@ -393,7 +389,6 @@ export default function App() {
 
       if (logError) throw logError;
 
-      // Upsert each student record
       const { error: recError } = await supabase
         .from('attendance_records')
         .upsert(
@@ -409,7 +404,6 @@ export default function App() {
 
       if (recError) throw recError;
 
-      // Refresh attendance logs in state
       await loadAttendanceLogs(user, await getTeachers());
     } catch (err) {
       console.error('Save attendance error:', err);
@@ -423,7 +417,6 @@ export default function App() {
   // Derived values
   // ---------------------------------------------------------------------------
 
-  // The teacher record to display in the sidebar footer / pass to child components
   const activeTeacher = user?.role === 'teacher'
     ? currentTeacher ?? teachers[0]
     : teachers[0];
@@ -502,11 +495,10 @@ export default function App() {
               <button
                 id="nav-link-dashboard"
                 onClick={() => setActiveScreen(user?.role === 'teacher' ? 'teacher_dash' : 'admin_dash')}
-                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                  activeScreen === 'teacher_dash' || activeScreen === 'admin_dash'
+                className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'teacher_dash' || activeScreen === 'admin_dash'
                     ? 'bg-blue-600 text-white font-bold shadow-sm'
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 <TrendingUp className="w-4 h-4 text-current" />
                 <span>Dashboard</span>
@@ -517,9 +509,8 @@ export default function App() {
                   <button
                     id="nav-link-students"
                     onClick={() => setActiveScreen('students')}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      activeScreen === 'students' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'students' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <GraduationCap className="w-4 h-4 text-current" />
                     <span>Students</span>
@@ -528,9 +519,8 @@ export default function App() {
                   <button
                     id="nav-link-teachers"
                     onClick={() => setActiveScreen('teachers')}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      activeScreen === 'teachers' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'teachers' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <Users className="w-4 h-4 text-current" />
                     <span>Teachers</span>
@@ -539,9 +529,8 @@ export default function App() {
                   <button
                     id="nav-link-user-management"
                     onClick={() => setActiveScreen('user_management')}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      activeScreen === 'user_management' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'user_management' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <UserCheck className="w-4 h-4 text-current" />
                     <span>Create Users</span>
@@ -550,20 +539,29 @@ export default function App() {
                   <button
                     id="nav-link-classes"
                     onClick={() => setActiveScreen('timetable_setup')}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      activeScreen === 'timetable_setup' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'timetable_setup' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <Layers className="w-4 h-4 text-current" />
                     <span>Classes</span>
                   </button>
 
+                  {/* ── NEW: Timetable Manager nav link ── */}
+                  <button
+                    id="nav-link-timetable-manager"
+                    onClick={() => setActiveScreen('timetable_manager')}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'timetable_manager' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                  >
+                    <TableProperties className="w-4 h-4 text-current" />
+                    <span>Timetable</span>
+                  </button>
+
                   <button
                     id="nav-link-reports"
                     onClick={() => setActiveScreen('reports')}
-                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                      activeScreen === 'reports' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'reports' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
                   >
                     <FileText className="w-4 h-4 text-current" />
                     <span>Reports</span>
@@ -572,20 +570,32 @@ export default function App() {
               )}
 
               {user?.role === 'teacher' && (
-                <button
-                  id="nav-link-attendance"
-                  onClick={() => setActiveScreen('teacher_dash')}
-                  className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${
-                    activeScreen === 'attendance_marker' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  <Calendar className="w-4 h-4 text-current" />
-                  <span>Attendance</span>
-                </button>
+                <>
+                  <button
+                    id="nav-link-attendance"
+                    onClick={() => setActiveScreen('teacher_dash')}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'attendance_marker' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                  >
+                    <Calendar className="w-4 h-4 text-current" />
+                    <span>Attendance</span>
+                  </button>
+
+                  {/* ── Teachers can view timetable read-only ── */}
+                  <button
+                    id="nav-link-timetable-manager-teacher"
+                    onClick={() => setActiveScreen('timetable_manager')}
+                    className={`w-full text-left flex items-center gap-3 px-3 py-2 text-sm rounded-lg transition-all cursor-pointer ${activeScreen === 'timetable_manager' ? 'bg-blue-600 text-white font-bold shadow-sm' : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                      }`}
+                  >
+                    <TableProperties className="w-4 h-4 text-current" />
+                    <span>Timetable</span>
+                  </button>
+                </>
               )}
             </nav>
 
-            {/* Sidebar Footer – user info only, no reset button */}
+            {/* Sidebar Footer */}
             {activeTeacher && (
               <div className="p-4 border-t border-slate-200 bg-slate-50/50">
                 <div className="flex items-center gap-3 px-1">
@@ -713,6 +723,11 @@ export default function App() {
                 />
               )}
 
+              {/* ── NEW: Timetable Manager screen (admin edit + teacher read-only) ── */}
+              {activeScreen === 'timetable_manager' && (
+                <TimetableManager />
+              )}
+
               {activeScreen === 'reports' && (
                 <Reports
                   classes={classes}
@@ -753,6 +768,13 @@ export default function App() {
                       <Calendar className="w-4 h-4" />
                       My Schedule / Timeline
                     </button>
+                    <button
+                      onClick={() => { setActiveScreen('timetable_manager'); setMobileMenuOpen(false); }}
+                      className={`w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-semibold ${activeScreen === 'timetable_manager' ? 'bg-slate-50 text-indigo-600 font-bold' : 'text-slate-600'}`}
+                    >
+                      <TableProperties className="w-4 h-4" />
+                      View Timetable
+                    </button>
                   </>
                 ) : (
                   <>
@@ -762,6 +784,7 @@ export default function App() {
                       { screen: 'students', icon: <GraduationCap className="w-4 h-4" />, label: 'Student Directory' },
                       { screen: 'teachers', icon: <Users className="w-4 h-4" />, label: 'Hired Faculty' },
                       { screen: 'timetable_setup', icon: <Layers className="w-4 h-4" />, label: 'Timetables & Groups' },
+                      { screen: 'timetable_manager', icon: <TableProperties className="w-4 h-4" />, label: 'Timetable Manager' },
                       { screen: 'reports', icon: <FileText className="w-4 h-4" />, label: 'Audit Reports Generator' },
                     ].map(({ screen, icon, label }) => (
                       <button
