@@ -1,16 +1,26 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { GraduationCap, Lock, Mail, AlertCircle, Loader } from 'lucide-react';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 export default function Login() {
   const { login, isLoading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(
+    !isSupabaseConfigured
+      ? 'Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env.local file.'
+      : ''
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    if (!isSupabaseConfigured) {
+      setError('Cannot sign in: Supabase is not configured. Check your environment variables.');
+      return;
+    }
 
     if (!email || !password) {
       setError('Please enter both email and password');
@@ -46,6 +56,18 @@ export default function Login() {
 
           {/* Form Content */}
           <div className="px-6 py-8 sm:px-8">
+            {!isSupabaseConfigured && (
+              <div className="mb-6 bg-amber-900/30 border border-amber-700/50 rounded-lg p-4 flex gap-3 text-amber-200">
+                <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-semibold mb-1 text-amber-300">Supabase Env Vars Missing</p>
+                  <p className="text-amber-300/80 leading-relaxed">
+                    App is running in offline demo/fallback mode. Please set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in your <code>.env.local</code> to enable live database connections.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Email Input */}
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>

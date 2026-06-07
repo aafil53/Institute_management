@@ -10,14 +10,31 @@ import type {
   AttendanceRecord,
 } from '../types/supabase'
 
-const SUPABASE_URL = (import.meta as any).env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = (import.meta as any).env.VITE_SUPABASE_ANON_KEY
+const SUPABASE_URL: string = (import.meta as any).env.VITE_SUPABASE_URL ?? ''
+const SUPABASE_ANON_KEY: string = (import.meta as any).env.VITE_SUPABASE_ANON_KEY ?? ''
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase environment variables')
+/**
+ * True when both VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are present.
+ * UI layers should check this flag and show a configuration banner when false
+ * rather than letting the app crash at module load time.
+ */
+export const isSupabaseConfigured: boolean = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY)
+
+if (!isSupabaseConfigured) {
+  console.warn(
+    '[supabase] Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. ' +
+      'The app will load but all database/auth calls will fail until the ' +
+      'environment variables are configured.',
+  )
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+// createClient is always called so every downstream import resolves cleanly.
+// When env vars are absent the placeholder URL/key mean requests will fail
+// at runtime (not at module load), which is the graceful fallback we want.
+export const supabase = createClient(
+  SUPABASE_URL || 'https://placeholder.supabase.co',
+  SUPABASE_ANON_KEY || 'placeholder-anon-key',
+)
 
 // ============================================================================
 // Auth Functions
