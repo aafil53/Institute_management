@@ -67,6 +67,16 @@ const DEFAULT_TIMES: Record<Period, { start: string; end: string }> = {
     8: { start: '14:15', end: '15:00' },
 };
 
+// Ensures time is always in HH:MM:SS format for PostgreSQL TIME columns
+function toPostgresTime(time: string): string {
+    if (!time) return '00:00:00';
+    // Already HH:MM:SS
+    if (time.length === 8) return time;
+    // HH:MM → HH:MM:SS
+    if (time.length === 5) return time + ':00';
+    return time;
+}
+
 export default function TimetableManager() {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
@@ -93,20 +103,23 @@ export default function TimetableManager() {
 
     const showToast = (msg: string, type: 'success' | 'error') => {
         setToast({ msg, type });
-        setTimeout(() => setToast(null), 3000);
+        setTimeout(() => setToast(null), 4000);
     };
 
     useEffect(() => {
-        supabase.from('classes').select('id, name').order('name').then(({ data }) => {
-            if (data) {
+        supabase.from('classes').select('id, name').order('name').then(({ data, error }) => {
+            if (error) console.error('Classes load error:', error);
+            if (data && data.length > 0) {
                 setClasses(data);
-                if (data.length > 0) setSelectedClassId(data[0].id);
+                // Only set if not already set
+                setSelectedClassId(prev => prev || data[0].id);
             }
         });
     }, []);
 
     useEffect(() => {
-        supabase.from('teachers').select('id, name, department').order('name').then(({ data }) => {
+        supabase.from('teachers').select('id, name, department').order('name').then(({ data, error }) => {
+            if (error) console.error('Teachers load error:', error);
             if (data) setTeachers(data);
         });
     }, []);
@@ -120,7 +133,8 @@ export default function TimetableManager() {
             .eq('class_id', selectedClassId);
 
         if (error) {
-            showToast('Failed to load timetable', 'error');
+            console.error('Load slots error:', error);
+            showToast('Failed to load timetable: ' + error.message, 'error');
         } else {
             setSlots((data || []).map((s: any) => ({
                 ...s,
@@ -136,6 +150,10 @@ export default function TimetableManager() {
         slots.find(s => s.day_of_week === day && s.period_number === period);
 
     const openModal = (day: Day, period: Period) => {
+        if (!selectedClassId) {
+            showToast('Please select a class first', 'error');
+            return;
+        }
         const existing = getSlot(day, period) || null;
         setModal({ open: true, day, period, existing });
         if (existing) {
@@ -163,7 +181,14 @@ export default function TimetableManager() {
             showToast('Subject is required for a class period', 'error');
             return;
         }
+
+        if (!selectedClassId) {
+            showToast('Please select a class first', 'error');
+            return;
+        }
+
         setSaving(true);
+
         const payload = {
             class_id: selectedClassId,
             day_of_week: modal.day,
@@ -171,40 +196,58 @@ export default function TimetableManager() {
             slot_type: fType,
             subject: fType === 'class' ? fSubject.trim() : null,
             teacher_id: fType === 'class' && fTeacherId ? fTeacherId : null,
-            start_time: fStart,
-            end_time: fEnd,
+            start_time: toPostgresTime(fStart),   // ✅ HH:MM:SS
+            end_time: toPostgresTime(fEnd),         // ✅ HH:MM:SS
             note: fNote.trim() || null,
         };
 
-        const { error } = modal.existing
-            ? await supabase.from('timetable_slots').update(payload).eq('id', modal.existing.id)
-            : await supabase.from('timetable_slots').insert([payload]);
+        console.log('Saving payload:', payload);
+
+        let error;
+
+        if (modal.existing) {
+            const result = await supabase
+                .from('timetable_slots')
+                .update(payload)
+                .eq('id', modal.existing.id);
+            error = result.error;
+        } else {
+            const result = await supabase
+                .from('timetable_slots')
+                .insert([payload]);
+            error = result.error;
+        }
 
         if (error) {
+            console.error('Save error full details:', error);
             showToast('Failed to save: ' + error.message, 'error');
         } else {
             showToast('Saved successfully', 'success');
             closeModal();
             loadSlots();
         }
+
         setSaving(false);
     };
 
     const handleDelete = async () => {
         if (!modal.existing) return;
         setSaving(true);
+
         const { error } = await supabase
             .from('timetable_slots')
             .delete()
             .eq('id', modal.existing.id);
 
         if (error) {
-            showToast('Failed to delete', 'error');
+            console.error('Delete error:', error);
+            showToast('Failed to delete: ' + error.message, 'error');
         } else {
             showToast('Period cleared', 'success');
             closeModal();
             loadSlots();
         }
+
         setSaving(false);
     };
 
@@ -215,8 +258,8 @@ export default function TimetableManager() {
             {/* Toast */}
             {toast && (
                 <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-semibold border ${toast.type === 'success'
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                        : 'bg-red-50 text-red-800 border-red-200'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : 'bg-red-50 text-red-800 border-red-200'
                     }`}>
                     {toast.type === 'success'
                         ? <CheckCircle2 className="w-4 h-4 text-emerald-600" />
@@ -301,8 +344,7 @@ export default function TimetableManager() {
                                                     {slot ? (
                                                         <div
                                                             onClick={() => isAdmin && openModal(day, period)}
-                                                            className={`rounded-lg border p-2 min-h-[64px] transition-all ${SLOT_COLORS[slot.slot_type]} ${isAdmin ? 'cursor-pointer hover:opacity-80' : ''
-                                                                }`}
+                                                            className={`rounded-lg border p-2 min-h-[64px] transition-all ${SLOT_COLORS[slot.slot_type]} ${isAdmin ? 'cursor-pointer hover:opacity-80' : ''}`}
                                                         >
                                                             <div className="text-[10px] font-bold uppercase tracking-wider opacity-60 mb-0.5">
                                                                 {SLOT_LABELS[slot.slot_type]}
@@ -373,8 +415,8 @@ export default function TimetableManager() {
                                             key={t}
                                             onClick={() => setFType(t)}
                                             className={`px-3 py-2 rounded-lg border text-xs font-semibold text-left transition-all ${fType === t
-                                                    ? SLOT_COLORS[t] + ' ring-2 ring-offset-1 ring-blue-400'
-                                                    : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                                                ? SLOT_COLORS[t] + ' ring-2 ring-offset-1 ring-blue-400'
+                                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
                                                 }`}
                                         >
                                             {SLOT_LABELS[t]}

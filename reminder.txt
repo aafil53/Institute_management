@@ -1,0 +1,32 @@
+For All Future Tables
+Every new table you create, just follow this pattern:
+sql-- 1. Create table
+CREATE TABLE your_new_table (...);
+
+-- 2. Enable RLS
+ALTER TABLE your_new_table ENABLE ROW LEVEL SECURITY;
+
+-- 3. Read: everyone authenticated can read
+CREATE POLICY "Authenticated can read your_new_table"
+  ON your_new_table FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- 4. Write: only admins
+CREATE POLICY "Admins can manage your_new_table"
+  ON your_new_table FOR ALL
+  TO authenticated
+  USING (get_my_role() = 'admin')
+  WITH CHECK (get_my_role() = 'admin');
+
+-- 5. Teachers write only their own data (if needed)
+CREATE POLICY "Teachers can manage their own data"
+  ON your_new_table FOR ALL
+  TO authenticated
+  USING (teacher_id IN (
+    SELECT id FROM teachers WHERE user_id = auth.uid()
+  ))
+  WITH CHECK (teacher_id IN (
+    SELECT id FROM teachers WHERE user_id = auth.uid()
+  ));
+The key rule: always use get_my_role() instead of subquerying the users table directly in policies. That's what caused all your 400 errors. 👍
